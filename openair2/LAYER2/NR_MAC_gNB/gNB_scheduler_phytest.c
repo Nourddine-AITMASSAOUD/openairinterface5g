@@ -242,7 +242,7 @@ void nr_schedule_css_dlsch_phytest(module_id_t   module_idP,
     TX_req->PDU_index = nr_mac->pdu_index[CC_id]++;
     TX_req->num_TLV = 1;
     TX_req->TLVs[0].length = 8;
-    memcpy((void*)&TX_req->TLVs[0].value.direct[0],(void*)&cc[CC_id].RAR_pdu.payload[0],TX_req->TLVs[0].length);
+    memcpy((void*)&TX_req->TLVs[0].value.direct[0],(void*)&cc[CC_id].RAR_pdu[0].payload[0],TX_req->TLVs[0].length);
     nr_mac->TX_req[CC_id].Number_of_PDUs++;
     nr_mac->TX_req[CC_id].SFN=frameP;
     nr_mac->TX_req[CC_id].Slot=slotP;
@@ -414,7 +414,7 @@ int configure_fapi_dl_pdu(int Mod_idP,
     }
   }
   AssertFatal(found==1,"Couldn't find an adequate searchspace\n");
-
+#if 0
   int ret = nr_configure_pdcch(nr_mac,
                                pdcch_pdu_rel15,
                                UE_list->rnti[UE_id],
@@ -422,6 +422,24 @@ int configure_fapi_dl_pdu(int Mod_idP,
 		               ss,
 		               scc,
 		               bwp);
+#else
+//	uint8_t nr_of_candidates, aggregation_level;
+	NR_ControlResourceSet_t *coreset = get_coreset(bwp, ss, 1 /* ue-specific */);
+
+  nr_configure_pdcch(nr_mac,
+	                   pdcch_pdu_rel15,
+										 ss,
+										 scc,
+										 bwp,
+										 coreset);
+  int ret = nr_configure_dci(nr_mac,
+		                 UE_list->rnti[UE_id],
+	                   pdcch_pdu_rel15,
+										 ss,
+										 scc,
+										 bwp,
+										 coreset);
+#endif	
   if (ret < 0) {
    LOG_I(MAC,"CCE list not empty, couldn't schedule PDSCH\n");
    free(dci_pdu_rel15);
@@ -442,7 +460,7 @@ int configure_fapi_dl_pdu(int Mod_idP,
 
   LOG_D(MAC, "DCI params: rnti %x, rnti_type %d, dci_format %d\n \
 	                      coreset params: FreqDomainResource %llx, start_symbol %d  n_symb %d\n",
-	pdcch_pdu_rel15->dci_pdu.RNTI[0],
+	pdcch_pdu_rel15->dci_pdu[0].RNTI,
 	rnti_types[0],
 	dci_formats[0],
 	(unsigned long long)pdcch_pdu_rel15->FreqDomainResource,
@@ -534,7 +552,7 @@ void config_uldci(NR_BWP_Uplink_t *ubwp,
   }
 
   LOG_D(MAC, "[gNB scheduler phytest] ULDCI type 0 payload: PDCCH CCEIndex %d, freq_alloc %d, time_alloc %d, freq_hop_flag %d, mcs %d tpc %d ndi %d rv %d\n",
-	pdcch_pdu_rel15->dci_pdu.CceIndex[pdcch_pdu_rel15->numDlDci],
+	pdcch_pdu_rel15->dci_pdu[pdcch_pdu_rel15->numDlDci].CceIndex,
 	dci_pdu_rel15->frequency_domain_assignment.val,
 	dci_pdu_rel15->time_domain_assignment.val,
 	dci_pdu_rel15->frequency_hopping_flag.val,
@@ -1038,7 +1056,7 @@ void nr_schedule_uss_ulsch_phytest(int Mod_idP,
 
   rnti_types[0]   = NR_RNTI_C;
   LOG_D(MAC,"Configuring ULDCI/PDCCH in %d.%d\n", frameP,slotP);
-
+#if 0
   int ret = nr_configure_pdcch(nr_mac,
                                pdcch_pdu_rel15,
                                UE_list->rnti[UE_id],
@@ -1046,7 +1064,25 @@ void nr_schedule_uss_ulsch_phytest(int Mod_idP,
 		               ss,
 		               scc,
 		               bwp);
+#else
+//	uint8_t nr_of_candidates, aggregation_level;
+	NR_ControlResourceSet_t *coreset = get_coreset(bwp, ss, 1 /* ue-specific */);
 
+  nr_configure_pdcch(nr_mac,
+	                   pdcch_pdu_rel15,
+										 ss,
+										 scc,
+										 bwp,
+										 coreset);
+  int ret = nr_configure_dci(nr_mac,
+		                 UE_list->rnti[UE_id],
+	                   pdcch_pdu_rel15,
+										 ss,
+										 scc,
+										 bwp,
+										 coreset);
+
+#endif
   if (ret < 0) {
    LOG_I(MAC,"CCE list not empty, couldn't schedule PUSCH\n");
    UL_tti_req->n_pdus-=1;

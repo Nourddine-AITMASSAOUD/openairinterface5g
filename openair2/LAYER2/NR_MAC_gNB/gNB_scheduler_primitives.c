@@ -127,9 +127,32 @@ static inline uint8_t get_max_cces(uint8_t scs) {
   return (nr_max_number_of_cces_per_slot[scs]);
 } 
 
+NR_ControlResourceSet_t *get_coreset(NR_BWP_Downlink_t *bwp,
+                                     NR_SearchSpace_t *ss,
+																		 int ss_type) {
+		NR_ControlResourceSetId_t coreset_id = *ss->controlResourceSetId;
+		if (ss_type == 0) { // common search space
+		  AssertFatal(coreset_id != 0, "coreset0 currently not supported\n");
+			NR_ControlResourceSet_t *coreset = bwp->bwp_Common->pdcch_ConfigCommon->choice.setup->commonControlResourceSet;
+			AssertFatal(coreset_id == coreset->controlResourceSetId,
+			            "ID of common ss coreset does not correspond to id set in the "
+															                "search space\n");
+			return coreset;
+		} else {
+		  const int n = bwp->bwp_Dedicated->pdcch_Config->choice.setup->controlResourceSetToAddModList->list.count;
+		  for (int i = 0; i < n; i++) {
+			  NR_ControlResourceSet_t *coreset = bwp->bwp_Dedicated->pdcch_Config->choice.setup->controlResourceSetToAddModList->list.array[i];
+				if (coreset_id == coreset->controlResourceSetId) {
+				  return coreset;
+				}
+			}
+		  AssertFatal(0, "Couldn't find coreset with id %ld\n", coreset_id);
+    }
+}
+
 int allocate_nr_CCEs(gNB_MAC_INST *nr_mac,
-		     int bwp_id,
-		     int list_id,
+		     NR_BWP_Downlink_t *bwp,
+				 NR_ControlResourceSet_t *coreset,
 		     int aggregation,
 		     int search_space, // 0 common, 1 ue-specific
 		     int UE_id,
@@ -140,24 +163,25 @@ int allocate_nr_CCEs(gNB_MAC_INST *nr_mac,
 
   NR_UE_list_t *UE_list = &nr_mac->UE_list;
 
-  NR_BWP_Downlink_t *bwp;
-  NR_CellGroupConfig_t *secondaryCellGroup;
+//  NR_BWP_Downlink_t *bwp;
+//  NR_CellGroupConfig_t *secondaryCellGroup;
 
-  NR_ControlResourceSet_t *coreset;
+//  NR_ControlResourceSet_t *coreset;
 
   AssertFatal(UE_list->active[UE_id] >=0,"UE_id %d is not active\n",UE_id);
-  secondaryCellGroup = UE_list->secondaryCellGroup[UE_id];
-  bwp=secondaryCellGroup->spCellConfig->spCellConfigDedicated->downlinkBWP_ToAddModList->list.array[bwp_id-1];
-
+//  secondaryCellGroup = UE_list->secondaryCellGroup[UE_id];
+//  bwp=secondaryCellGroup->spCellConfig->spCellConfigDedicated->downlinkBWP_ToAddModList->list.array[bwp_id-1];
+#if 0
   if (search_space == 1) {
     coreset = bwp->bwp_Dedicated->pdcch_Config->choice.setup->controlResourceSetToAddModList->list.array[list_id];
   }
   else {
     coreset = bwp->bwp_Common->pdcch_ConfigCommon->choice.setup->commonControlResourceSet;
   }
+#endif
 
   int coreset_id = coreset->controlResourceSetId;
-  int *cce_list = nr_mac->cce_list[bwp_id][coreset_id];
+  int *cce_list = nr_mac->cce_list[bwp->bwp_Id][coreset_id];
 
   int n_rb=0;
   for (int i=0;i<6;i++)
@@ -406,20 +430,69 @@ void nr_configure_css_dci_initial(nfapi_nr_dl_tti_pdcch_pdu_rel15_t* pdcch_pdu,
   */
 
 }
+int nr_configure_dci(gNB_MAC_INST *nr_mac,
+                     uint16_t rnti,
+                     nfapi_nr_dl_tti_pdcch_pdu_rel15_t* pdcch_pdu,
+										 NR_SearchSpace_t *ss,
+										 NR_ServingCellConfigCommon_t *scc,
+                     NR_BWP_Downlink_t *bwp,
+										 NR_ControlResourceSet_t *coreset) {
+#if 1
+  int CCEIndex = -1;
+    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].RNTI=rnti;
 
+    if (coreset->pdcch_DMRS_ScramblingID != NULL &&
+        ss->searchSpaceType->present == NR_SearchSpace__searchSpaceType_PR_ue_Specific) {
+      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingId = *coreset->pdcch_DMRS_ScramblingID;
+      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingRNTI=rnti;
+    }
+    else {
+      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingId = *scc->physCellId;
+      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingRNTI=0;
+    }
+
+    uint8_t nr_of_candidates,aggregation_level;
+    find_aggregation_candidates(&aggregation_level,
+                               &nr_of_candidates,
+                               ss);
+
+    CCEIndex = allocate_nr_CCEs(nr_mac,
+		                            bwp,
+																coreset,
+                                aggregation_level,
+                                ss->searchSpaceType->present-1, // search_space, 0 common, 1 ue-specific
+                                0, // UE-id
+                                0); // m
+
+    if (CCEIndex<0)
+     return (CCEIndex);
+
+    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].AggregationLevel = aggregation_level;
+    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].CceIndex = CCEIndex;
+
+    if (ss->searchSpaceType->choice.ue_Specific->dci_Formats==NR_SearchSpace__searchSpaceType__ue_Specific__dci_Formats_formats0_0_And_1_0)
+      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].beta_PDCCH_1_0=0;
+
+    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].powerControlOffsetSS=1;
+    pdcch_pdu->numDlDci++;
+
+		return 0;
+#endif
+
+}		
 int nr_configure_pdcch(gNB_MAC_INST *nr_mac,
                        nfapi_nr_dl_tti_pdcch_pdu_rel15_t* pdcch_pdu,
-                       uint16_t rnti,
-                       int ss_type,
                        NR_SearchSpace_t *ss,
                        NR_ServingCellConfigCommon_t *scc,
-                       NR_BWP_Downlink_t *bwp){
+                       NR_BWP_Downlink_t *bwp,
+											 NR_ControlResourceSet_t *coreset) {
 
-  int CCEIndex = -1;
-  int cid = 0;
-  NR_ControlResourceSet_t *coreset = NULL;
+//  int CCEIndex = -1;
+//  int cid = 0;
+//  NR_ControlResourceSet_t *coreset = NULL;
 
   if (bwp) { // This is not the InitialBWP
+#if 0
     NR_ControlResourceSet_t *temp_coreset;
     NR_ControlResourceSetId_t coresetid = *ss->controlResourceSetId;
     if (ss_type == 0) { // common search space
@@ -444,7 +517,7 @@ int nr_configure_pdcch(gNB_MAC_INST *nr_mac,
       if(coreset==NULL)
         AssertFatal(1==0,"Couldn't find coreset with id %ld\n",coresetid);
     }
-    
+#endif    
     pdcch_pdu->BWPSize  = NRRIV2BW(bwp->bwp_Common->genericParameters.locationAndBandwidth,275);
     pdcch_pdu->BWPStart = NRRIV2PRBOFFSET(bwp->bwp_Common->genericParameters.locationAndBandwidth,275);
     pdcch_pdu->SubcarrierSpacing = bwp->bwp_Common->genericParameters.subcarrierSpacing;
@@ -494,7 +567,7 @@ int nr_configure_pdcch(gNB_MAC_INST *nr_mac,
     
     //precoderGranularity
     pdcch_pdu->precoderGranularity = coreset->precoderGranularity;
-
+#if 0
     pdcch_pdu->dci_pdu.RNTI[pdcch_pdu->numDlDci]=rnti;
 
     if (coreset->pdcch_DMRS_ScramblingID != NULL &&
@@ -531,6 +604,7 @@ int nr_configure_pdcch(gNB_MAC_INST *nr_mac,
 
     pdcch_pdu->dci_pdu.powerControlOffsetSS[pdcch_pdu->numDlDci]=1;
     pdcch_pdu->numDlDci++;
+#endif
     return (0);
   }
   else { // this is for InitialBWP
@@ -813,10 +887,10 @@ void fill_dci_pdu_rel15(NR_ServingCellConfigCommon_t *scc,
 
   for (int d=0;d<pdcch_pdu_rel15->numDlDci;d++) {
 
-    uint64_t *dci_pdu = (uint64_t *)pdcch_pdu_rel15->dci_pdu.Payload[d];
+    uint64_t *dci_pdu = (uint64_t *)pdcch_pdu_rel15->dci_pdu[d].Payload;
     int dci_size = nr_dci_size(scc,secondaryCellGroup,&dci_pdu_rel15[d],dci_formats[d],rnti_types[d],N_RB,bwp_id);
-    pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d] = dci_size;
-    AssertFatal(pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d]<=64, "DCI sizes above 64 bits not yet supported");
+    pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits = dci_size;
+    AssertFatal(pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits<=64, "DCI sizes above 64 bits not yet supported");
 
     if(dci_formats[d]==NR_DL_DCI_FORMAT_1_1 || dci_formats[d]==NR_UL_DCI_FORMAT_0_1)
       prepare_dci(secondaryCellGroup,&dci_pdu_rel15[d],dci_formats[d],bwp_id);

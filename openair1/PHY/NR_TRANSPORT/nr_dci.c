@@ -207,8 +207,8 @@ uint8_t nr_generate_dci_top(nfapi_nr_dl_tti_pdcch_pdu *pdcch_pdu,
     AssertFatal(pdcch_pdu_rel15->CceRegMappingType == NFAPI_NR_CCE_REG_MAPPING_NON_INTERLEAVED,
 		"Interleaved CCE REG MAPPING not supported\n");
     uint32_t dmrs_length = (pdcch_pdu_rel15->CceRegMappingType == NFAPI_NR_CCE_REG_MAPPING_NON_INTERLEAVED)?
-      (n_rb*6) : (pdcch_pdu_rel15->dci_pdu.AggregationLevel[d]*36/cset_nsymb); //2(QPSK)*3(per RB)*6(REG per CCE)
-    uint32_t encoded_length = pdcch_pdu_rel15->dci_pdu.AggregationLevel[d]*108; //2(QPSK)*9(per RB)*6(REG per CCE)
+      (n_rb*6) : (pdcch_pdu_rel15->dci_pdu[d].AggregationLevel*36/cset_nsymb); //2(QPSK)*3(per RB)*6(REG per CCE)
+    uint32_t encoded_length = pdcch_pdu_rel15->dci_pdu[d].AggregationLevel*108; //2(QPSK)*9(per RB)*6(REG per CCE)
     LOG_D(PHY, "DMRS length per symbol %d\t DCI encoded length %d (precoder_granularity %d,reg_mapping %d)\n", dmrs_length, encoded_length,pdcch_pdu_rel15->precoderGranularity,pdcch_pdu_rel15->CceRegMappingType);
     dmrs_length += rb_offset*6; // To accommodate more DMRS symbols in case of rb offset
       
@@ -230,19 +230,19 @@ uint8_t nr_generate_dci_top(nfapi_nr_dl_tti_pdcch_pdu *pdcch_pdu,
     // CRC attachment + Scrambling + Channel coding + Rate matching
     uint32_t encoder_output[NR_MAX_DCI_SIZE_DWORD];
 
-    uint16_t n_RNTI = pdcch_pdu_rel15->dci_pdu.RNTI[d];
-    uint16_t Nid    = pdcch_pdu_rel15->dci_pdu.ScramblingId[d];
-    uint16_t scrambling_RNTI = pdcch_pdu_rel15->dci_pdu.ScramblingRNTI[d];
+    uint16_t n_RNTI = pdcch_pdu_rel15->dci_pdu[d].RNTI;
+    uint16_t Nid    = pdcch_pdu_rel15->dci_pdu[d].ScramblingId;
+    uint16_t scrambling_RNTI = pdcch_pdu_rel15->dci_pdu[d].ScramblingRNTI;
 
     t_nrPolar_params *currentPtr = nr_polar_params(NR_POLAR_DCI_MESSAGE_TYPE, 
-						   pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d], 
-						   pdcch_pdu_rel15->dci_pdu.AggregationLevel[d],
+						   pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits, 
+						   pdcch_pdu_rel15->dci_pdu[d].AggregationLevel,
 						   0,NULL);
-    polar_encoder_fast((uint64_t*)pdcch_pdu_rel15->dci_pdu.Payload[d], (void*)encoder_output, n_RNTI,1,currentPtr);
+    polar_encoder_fast((uint64_t*)pdcch_pdu_rel15->dci_pdu[d].Payload, (void*)encoder_output, n_RNTI,1,currentPtr);
 #ifdef DEBUG_CHANNEL_CODING
-    printf("polar rnti %x,length %d, L %d\n",n_RNTI, pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d],pdcch_pdu_rel15->dci_pdu.AggregationLevel[d]);
+    printf("polar rnti %x,length %d, L %d\n",n_RNTI, pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits,pdcch_pdu_rel15->dci_pdu[d].AggregationLevel);
     printf("DCI PDU: [0]->0x%lx \t [1]->0x%lx\n",
-	   ((uint64_t*)pdcch_pdu_rel15->dci_pdu.Payload[d])[0], ((uint64_t*)pdcch_pdu_rel15->dci_pdu.Payload[d])[1]);
+	   ((uint64_t*)pdcch_pdu_rel15->dci_pdu[d].Payload)[0], ((uint64_t*)pdcch_pdu_rel15->dci_pdu[d].Payload)[1]);
     printf("Encoded Payload (length:%d dwords):\n", encoded_length>>5);
     
     for (int i=0; i<encoded_length>>5; i++)
@@ -275,8 +275,8 @@ uint8_t nr_generate_dci_top(nfapi_nr_dl_tti_pdcch_pdu *pdcch_pdu,
       cset_start_sc -= frame_parms.ofdm_symbol_size;
     
     /*Reorder REG list for a freq first mapping*/
-    uint8_t reg_idx0 = pdcch_pdu_rel15->dci_pdu.CceIndex[d]*NR_NB_REG_PER_CCE;
-    uint8_t nb_regs = pdcch_pdu_rel15->dci_pdu.AggregationLevel[d]*NR_NB_REG_PER_CCE;
+    uint8_t reg_idx0 = pdcch_pdu_rel15->dci_pdu[d].CceIndex*NR_NB_REG_PER_CCE;
+    uint8_t nb_regs = pdcch_pdu_rel15->dci_pdu[d].AggregationLevel*NR_NB_REG_PER_CCE;
 
     /*Mapping the encoded DCI along with the DMRS */
     for (int reg_idx=reg_idx0; reg_idx<(nb_regs+reg_idx0); reg_idx++) {

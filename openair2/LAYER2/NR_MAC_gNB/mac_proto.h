@@ -203,12 +203,19 @@ void find_search_space(int ss_type,
 
 int nr_configure_pdcch(gNB_MAC_INST *nr_mac,
                        nfapi_nr_dl_tti_pdcch_pdu_rel15_t* pdcch_pdu,
-                       uint16_t rnti,
-                       int ss_type,
                        NR_SearchSpace_t *ss,
                        NR_ServingCellConfigCommon_t *scc,
-                       NR_BWP_Downlink_t *bwp);
+                       NR_BWP_Downlink_t *bwp,
+											 NR_ControlResourceSet_t *coreset);
 
+int nr_configure_dci(gNB_MAC_INST *nr_mac,
+                     uint16_t rnti,
+                     nfapi_nr_dl_tti_pdcch_pdu_rel15_t* pdcch_pdu,
+										 NR_SearchSpace_t *ss,
+										 NR_ServingCellConfigCommon_t *scc,
+                     NR_BWP_Downlink_t *bwp,
+										 NR_ControlResourceSet_t *coreset);
+		
 void fill_dci_pdu_rel15(NR_ServingCellConfigCommon_t *scc,
                         NR_CellGroupConfig_t *secondaryCellGroup,
                         nfapi_nr_dl_tti_pdcch_pdu_rel15_t *pdcch_pdu_rel15,
@@ -222,6 +229,10 @@ void prepare_dci(NR_CellGroupConfig_t *secondaryCellGroup,
                  dci_pdu_rel15_t *dci_pdu_rel15,
                  nr_dci_format_t format,
                  int bwp_id);
+
+NR_ControlResourceSet_t *get_coreset(NR_BWP_Downlink_t *bwp,
+                                     NR_SearchSpace_t *ss,
+                                     int ss_type);
 
 void find_aggregation_candidates(uint8_t *aggregation_level,
                                  uint8_t *nr_of_candidates,
@@ -256,8 +267,8 @@ int find_nr_RA_id(module_id_t mod_idP, int CC_idP, rnti_t rntiP);
 int add_new_nr_ue(module_id_t mod_idP, rnti_t rntiP);
 
 int allocate_nr_CCEs(gNB_MAC_INST *nr_mac,
-                     int bwp_id,
-                     int coreset_id,
+                     NR_BWP_Downlink_t *bwp,
+                     NR_ControlResourceSet_t *coreset,
                      int aggregation,
                      int search_space, // 0 common, 1 ue-specific
                      int UE_id,
@@ -286,8 +297,7 @@ void config_nr_mib(int Mod_idP,
 void nr_generate_Msg2(module_id_t module_idP,
                       int CC_id,
                       frame_t frameP,
-                      sub_frame_t slotP,
-											NR_RA_t *ra);
+                      sub_frame_t slotP);
 
 void nr_schedule_reception_msg3(module_id_t module_idP, int CC_id, frame_t frameP, sub_frame_t slotP);
 

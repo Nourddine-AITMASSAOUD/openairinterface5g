@@ -189,7 +189,7 @@ void rx_nr_prach_ru(RU_t *ru,
   int16_t *prach2;
 
   if (prach_sequence_length == 0) {
-    LOG_I(PHY,"PRACH (ru %d) in %d.%d, format %d, msg1_frequencyStart %d\n",
+    LOG_D(PHY,"PRACH (ru %d) in %d.%d, format %d, msg1_frequencyStart %d\n",
 	  ru->idx,frame,slot2,prachFormat,msg1_frequencystart);
     AssertFatal(prachFormat<4,"Illegal prach format %d for length 839\n",prachFormat);
     switch (prachFormat) {
@@ -212,7 +212,7 @@ void rx_nr_prach_ru(RU_t *ru,
     }
   }
   else {
-    LOG_I(PHY,"PRACH (ru %d) in %d.%d, format %s, msg1_frequencyStart %d,startSymbol %d\n",
+    LOG_D(PHY,"PRACH (ru %d) in %d.%d, format %s, msg1_frequencyStart %d,startSymbol %d\n",
 	  ru->idx,frame,slot,prachfmt[prachFormat],msg1_frequencystart,prachStartSymbol);
 
     switch (prachFormat) {
@@ -522,7 +522,7 @@ void rx_nr_prach_ru(RU_t *ru,
     }
 
     //Coherent combining of PRACH repetitions (assumes channel does not change, to be revisted for "long" PRACH)
-    LOG_I(PHY,"Doing PRACH combining of %d reptitions N_ZC %d,mu %d prachFormat %d prach2 %p content %d\n",reps,N_ZC,mu,prachFormat,prach2,*prach2);
+    LOG_D(PHY,"Doing PRACH combining of %d reptitions N_ZC %d\n",reps,N_ZC);
     int16_t rxsigF_tmp[N_ZC<<1];
     //    if (k+N_ZC > dftlen) { // PRACH signal is split around DC 
     int16_t *rxsigF2=rxsigF[aa];
@@ -534,7 +534,6 @@ void rx_nr_prach_ru(RU_t *ru,
       for (int i=1;i<reps;i++) rxsigF_tmp[j] += rxsigF2[k2+(i*dftlen<<1)];
     }
     memcpy((void*)rxsigF2,(void *)rxsigF_tmp,N_ZC<<2);
-		LOG_I(PHY,"GES printing rxsigF2 %d\n",*rxsigF2);
   }
 
 }
