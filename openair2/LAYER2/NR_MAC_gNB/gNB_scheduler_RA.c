@@ -448,12 +448,17 @@ void nr_initiate_ra_proc(module_id_t module_idP,
   // if the preamble received correspond to one of the listed
   // the UE sent a RACH either for starting RA procedure or RA procedure failed and UE retries
   int pr_found=0;
+	for (int temp_UE_id = 0;temp_UE_id < MAX_MOBILES_PER_GNB ; temp_UE_id++) {
   for (int i=0;i<UE_list->preambles[UE_id].num_preambles;i++) {
     if (preamble_index == UE_list->preambles[UE_id].preamble_list[i]) {
       pr_found=1;
+			UE_id = temp_UE_id;
       break;
     }
   }
+	if(pr_found)
+			break;
+	}
   if (pr_found)
     UE_list->fiveG_connected[UE_id] = false;
   else {
@@ -475,14 +480,14 @@ void nr_initiate_ra_proc(module_id_t module_idP,
 
   if (ra->state == RA_IDLE) {
 
-    uint8_t index = ssb_index_from_prach(module_idP,
+    uint8_t beam_index = ssb_index_from_prach(module_idP,
 		                                     frameP,
 																				 slotP,
 																				 preamble_index,
 																				 freq_index,
 																				 symbol);
 
-    NR_SSB_list_t *SSB_list = &nr_mac->SSB_list[index];
+    NR_SSB_list_t *SSB_list = &nr_mac->SSB_list[beam_index];
     int loop = 0;
     LOG_D(MAC, "Frame %d, Slot %d: Activating RA process \n", frameP, slotP);
     ra->state = Msg2;
@@ -504,7 +509,7 @@ void nr_initiate_ra_proc(module_id_t module_idP,
                                               &monitoring_slot_period,
                                               &monitoring_offset);
 
-    nr_schedule_msg2(frameP, slotP, &msg2_frame, &msg2_slot, scc, monitoring_slot_period, monitoring_offset,index,cc->num_active_ssb);
+    nr_schedule_msg2(frameP, slotP, &msg2_frame, &msg2_slot, scc, monitoring_slot_period, monitoring_offset,beam_index,cc->num_active_ssb);
 
     ra->Msg2_frame = msg2_frame;
     ra->Msg2_slot = msg2_slot;
@@ -521,14 +526,16 @@ void nr_initiate_ra_proc(module_id_t module_idP,
       abort();
     }
 
-    UE_id = find_nr_UE_id(module_idP, ra->rnti);
     ra->RA_rnti = ra_rnti;
     ra->preamble_index = preamble_index;
+		ra->ssb_id = beam_index;
     UE_list->tc_rnti[UE_id] = ra->rnti;
-    UE_list->UE_ssb_index[UE_id] = SSB_list->ssb_index;
+    UE_list->UE_ssb_index[UE_id] = beam_index;
+#if 0
     SSB_list->SSB_UE_list[UE_id].tc_rnti = ra->rnti;
     SSB_list->SSB_UE_list[UE_id].active = true;
     SSB_list->num_UEs += 1;
+#endif
 
     LOG_I(MAC,"[gNB %d][RAPROC] CC_id %d Frame %d Activating Msg2 generation in frame %d, slot %d using RA rnti %x SSB index %u UE_id %u\n",
       module_idP,
@@ -551,12 +558,12 @@ void nr_initiate_ra_proc(module_id_t module_idP,
 void nr_schedule_RA(module_id_t module_idP, frame_t frameP, sub_frame_t slotP){
 
   //uint8_t i = 0;
-  int CC_id = 0;
+//  int CC_id = 0;
   gNB_MAC_INST *mac = RC.nrmac[module_idP];
-  NR_COMMON_channels_t *cc = &mac->common_channels[CC_id];
 
   start_meas(&mac->schedule_ra);
-  for (CC_id = 0; CC_id < MAX_NUM_CCs; CC_id++) {
+  for (int CC_id = 0; CC_id < MAX_NUM_CCs; CC_id++) {
+  NR_COMMON_channels_t *cc = &mac->common_channels[CC_id];
     for (int i = 0; i < NR_NB_RA_PROC_MAX; i++) {
   
 	NR_RA_t *ra = &cc->ra[i];
@@ -792,13 +799,14 @@ void nr_generate_Msg2(module_id_t module_idP,
 										 ss,
 										 scc,
 										 bwp,
-										 coreset);
+										 coreset);  
+  dl_req->nPDUs+=1; //Adding PDCCH pdu count
 #endif
 	for (int i = 0; i < NR_NB_RA_PROC_MAX; i++) {
 	NR_RA_t *ra = &cc->ra[i];
   if (ra->state == Msg2) {
 
-//  NR_UE_list_t                     *UE_list = &nr_mac->UE_list;
+//  NR_UE_list_t *UE_list = &nr_mac->UE_list;
 //  NR_SearchSpace_t *ss = ra->ra_ss;
 
   uint16_t RA_rnti = ra->RA_rnti;
@@ -820,7 +828,7 @@ void nr_generate_Msg2(module_id_t module_idP,
 
   if ((ra->Msg2_frame == frameP) && (ra->Msg2_slot == slotP)) {
 
-    nfapi_nr_dl_tti_request_pdu_t *dl_tti_pdsch_pdu = &dl_req->dl_tti_pdu_list[dl_req->nPDUs+1];
+    nfapi_nr_dl_tti_request_pdu_t *dl_tti_pdsch_pdu = &dl_req->dl_tti_pdu_list[dl_req->nPDUs]; //RAJU
     memset((void *)dl_tti_pdsch_pdu,0,sizeof(nfapi_nr_dl_tti_request_pdu_t));
     dl_tti_pdsch_pdu->PDUType = NFAPI_NR_DL_TTI_PDSCH_PDU_TYPE;
     dl_tti_pdsch_pdu->PDUSize = (uint8_t)(2+sizeof(nfapi_nr_dl_tti_pdsch_pdu));
@@ -900,6 +908,11 @@ void nr_generate_Msg2(module_id_t module_idP,
     pdsch_pdu_rel15->StartSymbolIndex = StartSymbolIndex;
     pdsch_pdu_rel15->NrOfSymbols      = NrOfSymbols;
     pdsch_pdu_rel15->dlDmrsSymbPos = fill_dmrs_mask(NULL, scc->dmrs_TypeA_Position, NrOfSymbols);
+		pdsch_pdu_rel15->precodingAndBeamforming.numPRGs = 1;
+		pdsch_pdu_rel15->precodingAndBeamforming.prgSize = pdsch_pdu_rel15->rbSize;
+		pdsch_pdu_rel15->precodingAndBeamforming.digBFInterfaces = 1;
+		pdsch_pdu_rel15->precodingAndBeamforming.PMIdx[0] = 0;
+		pdsch_pdu_rel15->precodingAndBeamforming.beamIdx[0] = ra->ssb_id;
 #if 1
     nr_configure_dci(nr_mac,
 		                 RA_rnti,
@@ -907,7 +920,8 @@ void nr_generate_Msg2(module_id_t module_idP,
 										 ss,
 										 scc,
 										 bwp,
-										 coreset);
+										 coreset,
+										 ra->ssb_id);
 #else
     pdcch_pdu_rel15->dci_pdu[pdcch_pdu_rel15->numDlDci].RNTI=RA_rnti;
 
@@ -970,7 +984,7 @@ void nr_generate_Msg2(module_id_t module_idP,
     rnti_types[0] = NR_RNTI_RA;
 
     LOG_I(MAC, "[RAPROC] DCI params: rnti %d, rnti_type %d, dci_format %d coreset params: FreqDomainResource %llx, start_symbol %d  n_symb %d\n",
-      pdcch_pdu_rel15->dci_pdu[pdcch_pdu_rel15->numDlDci].RNTI,
+      pdcch_pdu_rel15->dci_pdu.RNTI[pdcch_pdu_rel15->numDlDci],
       rnti_types[0],
       dci_formats[0],
       (unsigned long long)pdcch_pdu_rel15->FreqDomainResource,
@@ -978,8 +992,6 @@ void nr_generate_Msg2(module_id_t module_idP,
       pdcch_pdu_rel15->DurationSymbols);
 
     fill_dci_pdu_rel15(scc,secondaryCellGroup,pdcch_pdu_rel15, &dci_pdu_rel15, dci_formats, rnti_types,dci10_bw,ra->bwp_id);
-
-    dl_req->nPDUs+=1; //Adding PDSCH pdu count
 
     // Program UL processing for Msg3
     nr_get_Msg3alloc(scc, ubwp, slotP, frameP, ra);
@@ -1001,11 +1013,12 @@ void nr_generate_Msg2(module_id_t module_idP,
     nr_mac->TX_req[CC_id].Slot = slotP;
     memcpy((void*)&tx_req->TLVs[0].value.direct[0], (void*)&cc[CC_id].RAR_pdu[dci_pdu_index].payload[0], tx_req->TLVs[0].length);
 		dci_pdu_index+=1;
+    dl_req->nPDUs+=1; //Adding PDSCH pdu count
     pdcch_pdu_rel15->numDlDci++;
 	}
 	}
 	}	
-  dl_req->nPDUs+=1; //Adding PDCCH pdu count
+//  dl_req->nPDUs+=1; //Adding PDCCH pdu count
 }
 
 void nr_clear_ra_proc(module_id_t module_idP, int CC_id, frame_t frameP){

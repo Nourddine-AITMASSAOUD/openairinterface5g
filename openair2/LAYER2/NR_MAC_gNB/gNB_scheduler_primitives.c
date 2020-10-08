@@ -436,19 +436,20 @@ int nr_configure_dci(gNB_MAC_INST *nr_mac,
 										 NR_SearchSpace_t *ss,
 										 NR_ServingCellConfigCommon_t *scc,
                      NR_BWP_Downlink_t *bwp,
-										 NR_ControlResourceSet_t *coreset) {
+										 NR_ControlResourceSet_t *coreset,
+										 uint8_t beam_index) {
 #if 1
   int CCEIndex = -1;
-    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].RNTI=rnti;
+    pdcch_pdu->dci_pdu.RNTI[pdcch_pdu->numDlDci]=rnti;
 
     if (coreset->pdcch_DMRS_ScramblingID != NULL &&
         ss->searchSpaceType->present == NR_SearchSpace__searchSpaceType_PR_ue_Specific) {
-      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingId = *coreset->pdcch_DMRS_ScramblingID;
-      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingRNTI=rnti;
+      pdcch_pdu->dci_pdu.ScramblingId[pdcch_pdu->numDlDci] = *coreset->pdcch_DMRS_ScramblingID;
+      pdcch_pdu->dci_pdu.ScramblingRNTI[pdcch_pdu->numDlDci]=rnti;
     }
     else {
-      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingId = *scc->physCellId;
-      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].ScramblingRNTI=0;
+      pdcch_pdu->dci_pdu.ScramblingId[pdcch_pdu->numDlDci] = *scc->physCellId;
+      pdcch_pdu->dci_pdu.ScramblingRNTI[pdcch_pdu->numDlDci]=0;
     }
 
     uint8_t nr_of_candidates,aggregation_level;
@@ -467,13 +468,18 @@ int nr_configure_dci(gNB_MAC_INST *nr_mac,
     if (CCEIndex<0)
      return (CCEIndex);
 
-    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].AggregationLevel = aggregation_level;
-    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].CceIndex = CCEIndex;
+    pdcch_pdu->dci_pdu.AggregationLevel[pdcch_pdu->numDlDci] = aggregation_level;
+    pdcch_pdu->dci_pdu.CceIndex[pdcch_pdu->numDlDci] = CCEIndex;
 
     if (ss->searchSpaceType->choice.ue_Specific->dci_Formats==NR_SearchSpace__searchSpaceType__ue_Specific__dci_Formats_formats0_0_And_1_0)
-      pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].beta_PDCCH_1_0=0;
+      pdcch_pdu->dci_pdu.beta_PDCCH_1_0[pdcch_pdu->numDlDci]=0;
 
-    pdcch_pdu->dci_pdu[pdcch_pdu->numDlDci].powerControlOffsetSS=1;
+    pdcch_pdu->dci_pdu.powerControlOffsetSS[pdcch_pdu->numDlDci]=1;
+		pdcch_pdu->dci_pdu.precodingAndBeamforming[pdcch_pdu->numDlDci].numPRGs         = 1;
+		pdcch_pdu->dci_pdu.precodingAndBeamforming[pdcch_pdu->numDlDci].prgSize         = 275;
+		pdcch_pdu->dci_pdu.precodingAndBeamforming[pdcch_pdu->numDlDci].digBFInterfaces = 1;
+		pdcch_pdu->dci_pdu.precodingAndBeamforming[pdcch_pdu->numDlDci].PMIdx[0]        = 0;
+		pdcch_pdu->dci_pdu.precodingAndBeamforming[pdcch_pdu->numDlDci].beamIdx[0]      = beam_index;
     pdcch_pdu->numDlDci++;
 
 		return 0;
@@ -887,10 +893,10 @@ void fill_dci_pdu_rel15(NR_ServingCellConfigCommon_t *scc,
 
   for (int d=0;d<pdcch_pdu_rel15->numDlDci;d++) {
 
-    uint64_t *dci_pdu = (uint64_t *)pdcch_pdu_rel15->dci_pdu[d].Payload;
+    uint64_t *dci_pdu = (uint64_t *)pdcch_pdu_rel15->dci_pdu.Payload[d];
     int dci_size = nr_dci_size(scc,secondaryCellGroup,&dci_pdu_rel15[d],dci_formats[d],rnti_types[d],N_RB,bwp_id);
-    pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits = dci_size;
-    AssertFatal(pdcch_pdu_rel15->dci_pdu[d].PayloadSizeBits<=64, "DCI sizes above 64 bits not yet supported");
+    pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d] = dci_size;
+    AssertFatal(pdcch_pdu_rel15->dci_pdu.PayloadSizeBits[d]<=64, "DCI sizes above 64 bits not yet supported");
 
     if(dci_formats[d]==NR_DL_DCI_FORMAT_1_1 || dci_formats[d]==NR_UL_DCI_FORMAT_0_1)
       prepare_dci(secondaryCellGroup,&dci_pdu_rel15[d],dci_formats[d],bwp_id);

@@ -438,7 +438,8 @@ int configure_fapi_dl_pdu(int Mod_idP,
 										 ss,
 										 scc,
 										 bwp,
-										 coreset);
+										 coreset,
+										 UE_list->UE_ssb_index[UE_id]);
 #endif	
   if (ret < 0) {
    LOG_I(MAC,"CCE list not empty, couldn't schedule PDSCH\n");
@@ -460,7 +461,7 @@ int configure_fapi_dl_pdu(int Mod_idP,
 
   LOG_D(MAC, "DCI params: rnti %x, rnti_type %d, dci_format %d\n \
 	                      coreset params: FreqDomainResource %llx, start_symbol %d  n_symb %d\n",
-	pdcch_pdu_rel15->dci_pdu[0].RNTI,
+	pdcch_pdu_rel15->dci_pdu.RNTI[0],
 	rnti_types[0],
 	dci_formats[0],
 	(unsigned long long)pdcch_pdu_rel15->FreqDomainResource,
@@ -552,7 +553,7 @@ void config_uldci(NR_BWP_Uplink_t *ubwp,
   }
 
   LOG_D(MAC, "[gNB scheduler phytest] ULDCI type 0 payload: PDCCH CCEIndex %d, freq_alloc %d, time_alloc %d, freq_hop_flag %d, mcs %d tpc %d ndi %d rv %d\n",
-	pdcch_pdu_rel15->dci_pdu[pdcch_pdu_rel15->numDlDci].CceIndex,
+	pdcch_pdu_rel15->dci_pdu.CceIndex[pdcch_pdu_rel15->numDlDci],
 	dci_pdu_rel15->frequency_domain_assignment.val,
 	dci_pdu_rel15->time_domain_assignment.val,
 	dci_pdu_rel15->frequency_hopping_flag.val,
@@ -1080,7 +1081,8 @@ void nr_schedule_uss_ulsch_phytest(int Mod_idP,
 										 ss,
 										 scc,
 										 bwp,
-										 coreset);
+										 coreset,
+										 UE_list->UE_ssb_index[UE_id]);
 
 #endif
   if (ret < 0) {
