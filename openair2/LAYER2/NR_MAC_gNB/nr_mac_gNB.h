@@ -382,6 +382,11 @@ typedef struct {
   NR_CellGroupConfig_t *secondaryCellGroup[MAX_MOBILES_PER_GNB];
 } NR_UE_info_t;
 
+typedef void (*nr_pp_impl_dl)(module_id_t mod_id,
+                              frame_t frame,
+                              sub_frame_t slot,
+                              int num_slots_per_tdd);
+
 /*! \brief top level eNB MAC structure */
 typedef struct gNB_MAC_INST_s {
   /// Ethernet parameters for northbound midhaul interface
@@ -442,6 +447,9 @@ typedef struct gNB_MAC_INST_s {
   time_stats_t schedule_pch;
   /// CCE lists
   int cce_list[MAX_NUM_BWP][MAX_NUM_CORESET][MAX_NUM_CCE];
+
+  /// DL preprocessor for differentiated scheduling
+  nr_pp_impl_dl pre_processor_dl;
 } gNB_MAC_INST;
 
 #endif /*__LAYER2_NR_MAC_GNB_H__ */
