@@ -169,13 +169,6 @@ void nr_fill_nfapi_dl_pdu(int Mod_id,
                           int ndi,
                           int round);
 
-int configure_fapi_dl_pdu_phytest(int Mod_id,
-                                  nfapi_nr_dl_tti_request_body_t *dl_req,
-                                  NR_sched_pucch *pucch_sched,
-                                  uint8_t *mcsIndex,
-                                  uint16_t *rbSize,
-                                  uint16_t *rbStart);
-
 void config_uldci(NR_BWP_Uplink_t *ubwp,
                   nfapi_nr_pusch_pdu_t *pusch_pdu,
                   nfapi_nr_dl_tti_pdcch_pdu_rel15_t *pdcch_pdu_rel15,
@@ -183,20 +176,6 @@ void config_uldci(NR_BWP_Uplink_t *ubwp,
                   int *dci_formats, int *rnti_types,
                   int time_domain_assignment, uint8_t tpc,
                   int n_ubwp, int bwp_id);
-
-void configure_fapi_dl_Tx(module_id_t Mod_idP,
-                          frame_t       frameP,
-                          sub_frame_t   slotP,
-                          nfapi_nr_dl_tti_request_body_t *dl_req,
-                          nfapi_nr_pdu_t *tx_req,
-                          int tbs_bytes,
-                          int16_t pdu_index);
-
-void nr_schedule_uss_dlsch_phytest(module_id_t   module_idP,
-                                   frame_t       frameP,
-                                   sub_frame_t   slotP,
-                                   NR_sched_pucch *pucch_sched,
-                                   nfapi_nr_dl_tti_pdsch_pdu_rel15_t *pdsch_config);
 
 void nr_schedule_pusch(int Mod_idP,
                        int UE_id,
